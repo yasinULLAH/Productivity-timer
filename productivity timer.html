@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Productivity Timer</title>
+    <style>
+        /* Basic Reset */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        /* Light and Dark Themes */
+        body.light {
+            background-color: #f4f4f4;
+            color: #333;
+        }
+
+        body.dark {
+            background-color: #2c2c2c;
+            color: #f4f4f4;
+        }
+
+        /* Container Styling */
+        .container {
+            max-width: 500px;
+            margin: 50px auto;
+            background: inherit;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        /* Heading */
+        h1 {
+            margin-bottom: 20px;
+        }
+
+        /* Timer Display */
+        .timer {
+            font-size: 60px;
+            margin: 20px 0;
+        }
+
+        /* Controls */
+        .controls button {
+            padding: 10px 20px;
+            margin: 5px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .controls button.start {
+            background-color: #28a745;
+            color: #fff;
+        }
+
+        .controls button.pause {
+            background-color: #ffc107;
+            color: #fff;
+        }
+
+        .controls button.reset {
+            background-color: #dc3545;
+            color: #fff;
+        }
+
+        /* Focus Modes */
+        .modes {
+            margin: 20px 0;
+        }
+
+        .modes button {
+            padding: 10px 15px;
+            margin: 5px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .modes button.active {
+            border: 2px solid #007bff;
+        }
+
+        .modes button.deep {
+            background-color: #6f42c1;
+            color: #fff;
+        }
+
+        .modes button.light {
+            background-color: #17a2b8;
+            color: #fff;
+        }
+
+        .modes button.custom {
+            background-color: #fd7e14;
+            color: #fff;
+        }
+
+        /* Settings */
+        .settings {
+            margin: 20px 0;
+            text-align: left;
+        }
+
+        .settings label {
+            display: block;
+            margin: 10px 0 5px;
+        }
+
+        .settings input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        /* Stats */
+        .stats {
+            margin: 20px 0;
+            text-align: left;
+        }
+
+        .stats h3 {
+            margin-bottom: 10px;
+        }
+
+        .stats ul {
+            list-style: none;
+        }
+
+        .stats li {
+            margin-bottom: 5px;
+        }
+
+        /* Dark Mode Toggle */
+        .toggle-theme {
+            margin-top: 20px;
+        }
+
+        .toggle-theme label {
+            cursor: pointer;
+        }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            .timer {
+                font-size: 40px;
+            }
+
+            .controls button, .modes button {
+                padding: 8px 12px;
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body class="light">
+    <div class="container">
+        <h1>Productivity Timer</h1>
+        <div class="timer" id="timer">25:00</div>
+        <div class="controls">
+            <button class="start" id="start-btn">Start</button>
+            <button class="pause" id="pause-btn">Pause</button>
+            <button class="reset" id="reset-btn">Reset</button>
+        </div>
+        <div class="modes">
+            <button class="deep active" data-mode="deep">Deep Work</button>
+            <button class="light" data-mode="light">Light Work</button>
+            <button class="custom" data-mode="custom">Custom</button>
+        </div>
+        <div class="settings" id="custom-settings" style="display: none;">
+            <label for="work-duration">Work Duration (minutes):</label>
+            <input type="number" id="work-duration" min="1" value="25">
+            <label for="break-duration">Break Duration (minutes):</label>
+            <input type="number" id="break-duration" min="1" value="5">
+        </div>
+        <div class="stats">
+            <h3>Statistics</h3>
+            <ul>
+                <li>Total Work Sessions: <span id="work-sessions">0</span></li>
+                <li>Total Breaks Taken: <span id="breaks-taken">0</span></li>
+                <li>Total Focus Time: <span id="focus-time">0</span> minutes</li>
+            </ul>
+        </div>
+        <div class="toggle-theme">
+            <label>
+                <input type="checkbox" id="theme-toggle"> Dark Mode
+            </label>
+        </div>
+    </div>
+
+    <script>
+        // Selectors
+        const timerDisplay = document.getElementById('timer');
+        const startBtn = document.getElementById('start-btn');
+        const pauseBtn = document.getElementById('pause-btn');
+        const resetBtn = document.getElementById('reset-btn');
+        const modeButtons = document.querySelectorAll('.modes button');
+        const customSettings = document.getElementById('custom-settings');
+        const workDurationInput = document.getElementById('work-duration');
+        const breakDurationInput = document.getElementById('break-duration');
+        const workSessionsSpan = document.getElementById('work-sessions');
+        const breaksTakenSpan = document.getElementById('breaks-taken');
+        const focusTimeSpan = document.getElementById('focus-time');
+        const themeToggle = document.getElementById('theme-toggle');
+        const body = document.body;
+
+        // Timer Variables
+        let workDuration = 25 * 60;
+        let breakDuration = 5 * 60;
+        let remainingTime = workDuration;
+        let timerInterval = null;
+        let isWorking = true;
+        let currentMode = 'deep';
+
+        // Statistics
+        let workSessions = 0;
+        let breaksTaken = 0;
+        let totalFocusTime = 0;
+
+        // Sounds
+        const workSound = new Audio('data:audio/mp3;base64,//uQxAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAACcQCA...');
+        const breakSound = new Audio('data:audio/mp3;base64,//uQxAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAACcQCA...');
+
+        // Initialize
+        updateTimerDisplay();
+        updateStats();
+
+        // Event Listeners
+        startBtn.addEventListener('click', startTimer);
+        pauseBtn.addEventListener('click', pauseTimer);
+        resetBtn.addEventListener('click', resetTimer);
+        modeButtons.forEach(button => button.addEventListener('click', changeMode));
+        workDurationInput.addEventListener('change', updateCustomDurations);
+        breakDurationInput.addEventListener('change', updateCustomDurations);
+        themeToggle.addEventListener('change', toggleTheme);
+
+        // Functions
+        function startTimer() {
+            if (timerInterval) return;
+            timerInterval = setInterval(() => {
+                if (remainingTime > 0) {
+                    remainingTime--;
+                    updateTimerDisplay();
+                } else {
+                    clearInterval(timerInterval);
+                    timerInterval = null;
+                    if (isWorking) {
+                        workSessions++;
+                        totalFocusTime += workDuration / 60;
+                        workSessionsSpan.textContent = workSessions;
+                        workSound.play();
+                        remainingTime = breakDuration;
+                        isWorking = false;
+                        updateTimerDisplay();
+                        alert('Time for a break!');
+                    } else {
+                        breaksTaken++;
+                        breaksTakenSpan.textContent = breaksTaken;
+                        breakSound.play();
+                        remainingTime = workDuration;
+                        isWorking = true;
+                        updateTimerDisplay();
+                        alert('Time to work!');
+                    }
+                }
+                updateStats();
+            }, 1000);
+        }
+
+        function pauseTimer() {
+            clearInterval(timerInterval);
+            timerInterval = null;
+        }
+
+        function resetTimer() {
+            clearInterval(timerInterval);
+            timerInterval = null;
+            isWorking = true;
+            remainingTime = workDuration;
+            updateTimerDisplay();
+        }
+
+        function changeMode(e) {
+            modeButtons.forEach(btn => btn.classList.remove('active'));
+            e.target.classList.add('active');
+            currentMode = e.target.getAttribute('data-mode');
+            if (currentMode === 'deep') {
+                workDuration = 50 * 60;
+                breakDuration = 10 * 60;
+                customSettings.style.display = 'none';
+            } else if (currentMode === 'light') {
+                workDuration = 25 * 60;
+                breakDuration = 5 * 60;
+                customSettings.style.display = 'none';
+            } else if (currentMode === 'custom') {
+                customSettings.style.display = 'block';
+                workDuration = parseInt(workDurationInput.value) * 60;
+                breakDuration = parseInt(breakDurationInput.value) * 60;
+            }
+            resetTimer();
+        }
+
+        function updateCustomDurations() {
+            if (currentMode === 'custom') {
+                workDuration = parseInt(workDurationInput.value) * 60;
+                breakDuration = parseInt(breakDurationInput.value) * 60;
+                resetTimer();
+            }
+        }
+
+        function updateTimerDisplay() {
+            let minutes = Math.floor(remainingTime / 60);
+            let seconds = remainingTime % 60;
+            timerDisplay.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        }
+
+        function updateStats() {
+            workSessionsSpan.textContent = workSessions;
+            breaksTakenSpan.textContent = breaksTaken;
+            focusTimeSpan.textContent = totalFocusTime;
+        }
+
+        function toggleTheme() {
+            if (themeToggle.checked) {
+                body.classList.remove('light');
+                body.classList.add('dark');
+            } else {
+                body.classList.remove('dark');
+                body.classList.add('light');
+            }
+        }
+    </script>
+</body>
+</html>
